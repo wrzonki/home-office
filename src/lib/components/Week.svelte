@@ -13,6 +13,9 @@
 				red++;
 			}
 		});
+		if (red === 0 || red + green === 0) {
+			return 0;
+		}
 		return Math.round((red / (green + red)) * 100);
 	});
 </script>

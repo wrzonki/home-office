@@ -2,10 +2,12 @@ function getDatesInRange(startDate, endDate) {
 	const date = new Date(startDate);
 	const end = new Date(endDate);
 	const dates = [];
-	while (date <= end) {
-		dates.push(date.toISOString().split('T')[0]);
-		date.setDate(date.getDate() + 1);
+
+	while (date.getTime() <= end.getTime()) {
+		dates.push(date.toISOString().slice(0, 10));
+		date.setUTCDate(date.getUTCDate() + 1);
 	}
+
 	return dates;
 }
 
@@ -22,7 +24,7 @@ export const dates = {
 	2: getDatesInRange(periods[2].start, periods[2].end),
 	3: getDatesInRange(periods[3].start, periods[3].end)
 };
-
+console.log(dates)
 export const appState = $state({});
 
 const setState = (arr) => {
