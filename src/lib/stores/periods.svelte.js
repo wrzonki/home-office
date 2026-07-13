@@ -1,3 +1,9 @@
+/* eslint-disable svelte/prefer-svelte-reactivity */
+/**
+ * @param {string} startDate
+ * @param {string} endDate
+ * @returns {string[]}
+ */
 function getDatesInRange(startDate, endDate) {
 	const date = new Date(startDate);
 	const end = new Date(endDate);
@@ -24,9 +30,18 @@ export const dates = {
 	2: getDatesInRange(periods[2].start, periods[2].end),
 	3: getDatesInRange(periods[3].start, periods[3].end)
 };
-console.log(dates)
+console.log(dates);
+/** @type {Record<string, string>} */
 export const appState = $state({});
 
+export const settings = $state({
+	requiredDays: [1, 2],
+	requiredPercent: 40
+});
+
+/**
+ * @param {string[]} arr
+ */
 const setState = (arr) => {
 	arr.forEach((date) => {
 		const weekDay = new Date(date).getDay();
@@ -38,9 +53,7 @@ const setState = (arr) => {
 	});
 };
 
-
-	setState(dates[0]);
-	setState(dates[1]);
-	setState(dates[2]);
-	setState(dates[3]);
-
+setState(dates[0]);
+setState(dates[1]);
+setState(dates[2]);
+setState(dates[3]);

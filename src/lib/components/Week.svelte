@@ -1,6 +1,7 @@
 <script>
-	import { appState } from '$lib/stores/periods.svelte.js';
+	import { appState, settings } from '$lib/stores/periods.svelte.js';
 	import Day from '$lib/components/Day.svelte';
+	/** @type {{ week: string[], index: number }} */
 	let { week, index } = $props();
 	let percent = $derived.by(() => {
 		let green = 0;
@@ -12,6 +13,13 @@
 			if (appState[day] === 'r') {
 				red++;
 			}
+			if (appState[day] === 'b') {
+				const dateObj = new Date(day);
+				const weekDay = dateObj.getDay();
+				if (settings.requiredDays.includes(weekDay)) {
+					red++;
+				}
+			}
 		});
 		if (red === 0 || red + green === 0) {
 			return 0;
@@ -21,13 +29,13 @@
 </script>
 
 <div class="week">
-	<div class="percent" class:red={percent < 40} class:green={percent >= 40}>
+	<div class="percent" class:red={percent < settings.requiredPercent} class:green={percent >= settings.requiredPercent}>
 		{index + 1}
 	</div>
-	{#each week as day}
+	{#each week as day (day)}
 		<Day {day} />
 	{/each}
-	<div class="percent" class:red={percent < 40} class:green={percent >= 40}>
+	<div class="percent" class:red={percent < settings.requiredPercent} class:green={percent >= settings.requiredPercent}>
 		{percent}%
 	</div>
 </div>

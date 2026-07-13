@@ -1,6 +1,14 @@
 <script>
-	import { appState } from '$lib/stores/periods.svelte.js';
+	import { appState, settings } from '$lib/stores/periods.svelte.js';
+	/** @type {{ day: string }} */
 	let { day } = $props();
+
+	const dateObj = new Date(day);
+	const weekDay = dateObj.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+
+	const isRequiredDay = $derived(settings.requiredDays.includes(weekDay));
+	const hasConflict = $derived(isRequiredDay && appState[day] === 'g');
+
 	const changeColor = () => {
 		if (appState[day] === 'b') {
 			appState[day] = 'g';
@@ -19,6 +27,13 @@
 	class:green={appState[day] === 'g'}
 	class:red={appState[day] === 'r'}
 >
+	{#if isRequiredDay}
+		<span
+			class="required-dot"
+			class:conflict={hasConflict}
+			title={hasConflict ? 'Wymagana obecność w biurze (wybrano pracę zdalną)' : 'Wymagana obecność w biurze'}
+		></span>
+	{/if}
 	<div class="date">
 		{Intl.DateTimeFormat('pl', {
 			month: 'numeric',
@@ -39,11 +54,48 @@
 		position: relative;
 		user-select: none;
 		margin: 5px;
+		border-radius: 8px;
+		transition: all 0.2s ease-in-out;
+		cursor: pointer;
+		overflow: hidden;
+	}
+	.day:hover {
+		transform: translateY(-2px);
+		filter: brightness(0.95);
+		box-shadow:
+			0 4px 6px -1px rgb(0 0 0 / 0.1),
+			0 2px 4px -2px rgb(0 0 0 / 0.1);
+	}
+	.required-dot {
+		position: absolute;
+		top: 6px;
+		left: 6px;
+		width: 6px;
+		height: 6px;
+		border-radius: 9999px;
+		background-color: rgba(0, 0, 0, 0.15);
+		z-index: 10;
+		transition: all 0.3s ease;
+	}
+	.required-dot.conflict {
+		background-color: #ef4444;
+		box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+		animation: pulse-dot 2s infinite ease-in-out;
+	}
+	@keyframes pulse-dot {
+		0%, 100% {
+			transform: scale(1);
+			opacity: 0.8;
+		}
+		50% {
+			transform: scale(1.3);
+			opacity: 1;
+		}
 	}
 	.date {
 		position: absolute;
-		top: 0;
-		right: 0;
+		top: 2px;
+		right: 2px;
 		font-weight: bold;
 		letter-spacing: -3px;
 		font-size: 35px;
@@ -53,8 +105,8 @@
 	}
 	.txt {
 		position: absolute;
-		bottom: 5px;
-		left: 0;
+		bottom: 2px;
+		left: 2px;
 		font-weight: bold;
 		letter-spacing: -3px;
 		font-size: 25px;
