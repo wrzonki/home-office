@@ -44,7 +44,9 @@
 				if (Array.isArray(parsedSettings.requiredDays)) {
 					settings.requiredDays = parsedSettings.requiredDays;
 				}
-				if (typeof parsedSettings.requiredPercent === 'number') {
+				if (typeof parsedSettings.minDays === 'number') {
+					settings.minDays = parsedSettings.minDays;
+				} else if (typeof parsedSettings.requiredPercent === 'number') {
 					settings.requiredPercent = parsedSettings.requiredPercent;
 				}
 			} catch {
@@ -60,6 +62,7 @@
 	$effect(() => {
 		localStorage.setItem('appSettings', JSON.stringify({
 			requiredDays: settings.requiredDays,
+			minDays: settings.minDays,
 			requiredPercent: settings.requiredPercent
 		}));
 	});
@@ -83,6 +86,7 @@
 				appState,
 				settings: {
 					requiredDays: settings.requiredDays,
+					minDays: settings.minDays,
 					requiredPercent: settings.requiredPercent
 				}
 			};
@@ -91,15 +95,8 @@
 			const url = URL.createObjectURL(dataBlob);
 			const link = document.createElement('a');
 
-			// Format current date as yyyy-MM-dd
-			const now = new Date();
-			const year = now.getFullYear();
-			const month = String(now.getMonth() + 1).padStart(2, '0');
-			const day = String(now.getDate()).padStart(2, '0');
-			const dateStr = `${year}-${month}-${day}`;
-
 			link.href = url;
-			link.download = `home-office-planner-${dateStr}.json`;
+			link.download = `home-office-planner.json`;
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);
@@ -167,12 +164,20 @@
 				// Merge settings
 				if (importedSettings) {
 					if (Array.isArray(importedSettings.requiredDays)) {
-						settings.requiredDays = importedSettings.requiredDays.filter(
-							(d) => typeof d === 'number' && d >= 0 && d <= 6
-						);
+						const validDays = [];
+						for (const d of importedSettings.requiredDays) {
+							if (typeof d === 'number' && d >= 0 && d <= 6) {
+								validDays.push(d);
+							}
+						}
+						settings.requiredDays = validDays;
 					}
-					if (typeof importedSettings.requiredPercent === 'number') {
-						settings.requiredPercent = Math.max(0, Math.min(100, importedSettings.requiredPercent));
+					if (typeof importedSettings.minDays === 'number') {
+						settings.minDays = Math.max(1, Math.min(5, importedSettings.minDays));
+					} else if (typeof importedSettings.requiredPercent === 'number') {
+						// Old configs had requiredPercent where 20% = 1 day, 40% = 2 days, etc.
+						const percent = Math.max(0, Math.min(100, importedSettings.requiredPercent));
+						settings.minDays = Math.max(1, Math.min(5, Math.round((percent / 100) * 5)));
 					}
 				}
 
@@ -313,18 +318,20 @@
 						</div>
 					</div>
 
-					<!-- Required Percentage slider -->
+					<!-- Required Days slider -->
 					<div class="flex flex-col gap-3 justify-center">
 						<div class="flex justify-between items-center">
-							<span class="text-sm font-semibold text-slate-500">Minimalny procent obecności:</span>
-							<span class="text-xl font-extrabold text-sky-500">{settings.requiredPercent}%</span>
+							<span class="text-sm font-semibold text-slate-500">Minimalna liczba dni w tygodniu:</span>
+							<span class="text-xl font-extrabold text-sky-500">
+								{settings.minDays} {settings.minDays === 1 ? 'dzień' : 'dni'}
+							</span>
 						</div>
 						<input
 							type="range"
-							min="0"
-							max="100"
-							step="5"
-							bind:value={settings.requiredPercent}
+							min="1"
+							max="5"
+							step="1"
+							bind:value={settings.minDays}
 							class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-sky-500 focus:outline-hidden"
 						/>
 					</div>

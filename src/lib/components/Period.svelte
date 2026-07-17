@@ -28,14 +28,60 @@
 		}
 		return Math.round((red / (green + red)) * 100);
 	});
+	let weeks = $derived(chunkArray(period, 7));
+
+	let weekBalances = $derived.by(() => {
+		let runningBalance = 0;
+		return weeks.map((week) => {
+			let actualOfficeDays = 0;
+			week.forEach((day) => {
+				if (appState[day] === 'r') {
+					actualOfficeDays++;
+				} else if (appState[day] === 'b') {
+					const dateObj = new Date(day);
+					const weekDay = dateObj.getDay();
+					if (settings.requiredDays.includes(weekDay)) {
+						actualOfficeDays++;
+					}
+				}
+			});
+			const requiredDays = settings.minDays;
+			runningBalance += (actualOfficeDays - requiredDays);
+			return runningBalance;
+		});
+	});
+
+	let isPeriodRequirementMet = $derived(
+		weekBalances.length > 0 && weekBalances[weekBalances.length - 1] >= 0
+	);
+
+	let totalOfficeDays = $derived.by(() => {
+		let count = 0;
+		period.flat().forEach((day) => {
+			if (appState[day] === 'r') {
+				count++;
+			} else if (appState[day] === 'b') {
+				const dateObj = new Date(day);
+				const weekDay = dateObj.getDay();
+				if (settings.requiredDays.includes(weekDay)) {
+					count++;
+				}
+			}
+		});
+		return count;
+	});
+
+	let totalRequiredDays = $derived(weeks.length * settings.minDays);
 </script>
 
 <header>
 	<h1>Okres {index + 1}</h1>
-	<h2 class:red={percent < settings.requiredPercent} class:green={percent >= settings.requiredPercent}>{percent}%</h2>
+	<h2 class:red={!isPeriodRequirementMet} class:green={isPeriodRequirementMet}>
+		{percent}% ({totalOfficeDays} / {totalRequiredDays})
+	</h2>
 </header>
-{#each chunkArray(period, 7) as week, index (index)}
-	<Week {week} {index} />
+{#each weeks as week, weekIndex (weekIndex)}
+	<Week {week} index={weekIndex} balance={weekBalances[weekIndex]} />
 {/each}
 
 <style>

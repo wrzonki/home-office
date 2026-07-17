@@ -31,7 +31,9 @@
 		<span
 			class="required-dot"
 			class:conflict={hasConflict}
-			title={hasConflict ? 'Wymagana obecność w biurze (wybrano pracę zdalną)' : 'Wymagana obecność w biurze'}
+			title={hasConflict
+				? 'Wymagana obecność w biurze (wybrano pracę zdalną)'
+				: 'Wymagana obecność w biurze'}
 		></span>
 	{/if}
 	<div class="date">
@@ -83,7 +85,8 @@
 		animation: pulse-dot 2s infinite ease-in-out;
 	}
 	@keyframes pulse-dot {
-		0%, 100% {
+		0%,
+		100% {
 			transform: scale(1);
 			opacity: 0.8;
 		}
@@ -94,19 +97,19 @@
 	}
 	.date {
 		position: absolute;
-		top: 2px;
-		right: 2px;
+		top: 4px;
+		right: 4px;
 		font-weight: bold;
 		letter-spacing: -3px;
-		font-size: 35px;
+		font-size: 30px;
 		opacity: 0.2;
 		line-height: 80%;
 		height: fit-content;
 	}
 	.txt {
 		position: absolute;
-		bottom: 2px;
-		left: 2px;
+		bottom: 4px;
+		left: 4px;
 		font-weight: bold;
 		letter-spacing: -3px;
 		font-size: 25px;

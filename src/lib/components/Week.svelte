@@ -1,42 +1,18 @@
 <script>
-	import { appState, settings } from '$lib/stores/periods.svelte.js';
 	import Day from '$lib/components/Day.svelte';
-	/** @type {{ week: string[], index: number }} */
-	let { week, index } = $props();
-	let percent = $derived.by(() => {
-		let green = 0;
-		let red = 0;
-		week.forEach((day) => {
-			if (appState[day] === 'g') {
-				green++;
-			}
-			if (appState[day] === 'r') {
-				red++;
-			}
-			if (appState[day] === 'b') {
-				const dateObj = new Date(day);
-				const weekDay = dateObj.getDay();
-				if (settings.requiredDays.includes(weekDay)) {
-					red++;
-				}
-			}
-		});
-		if (red === 0 || red + green === 0) {
-			return 0;
-		}
-		return Math.round((red / (green + red)) * 100);
-	});
+	/** @type {{ week: string[], index: number, balance: number }} */
+	let { week, index, balance } = $props();
 </script>
 
 <div class="week">
-	<div class="percent" class:red={percent < settings.requiredPercent} class:green={percent >= settings.requiredPercent}>
+	<div class="percent" class:red={balance < 0} class:gray={balance === 0} class:green={balance > 0}>
 		{index + 1}
 	</div>
 	{#each week as day (day)}
 		<Day {day} />
 	{/each}
-	<div class="percent" class:red={percent < settings.requiredPercent} class:green={percent >= settings.requiredPercent}>
-		{percent}%
+	<div class="percent" class:red={balance < 0} class:gray={balance === 0} class:green={balance > 0}>
+		{balance > 0 ? `+${balance}` : balance}
 	</div>
 </div>
 
@@ -60,5 +36,8 @@
 	}
 	.red {
 		color: #ffd8df;
+	}
+	.gray {
+		color: #94a3b8;
 	}
 </style>

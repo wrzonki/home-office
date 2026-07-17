@@ -36,7 +36,13 @@ export const appState = $state({});
 
 export const settings = $state({
 	requiredDays: [1, 2],
-	requiredPercent: 40
+	minDays: 2,
+	get requiredPercent() {
+		return Math.round((this.minDays / 5) * 100);
+	},
+	set requiredPercent(val) {
+		this.minDays = Math.round((val / 100) * 5);
+	}
 });
 
 /**
