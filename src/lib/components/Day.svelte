@@ -1,5 +1,5 @@
 <script>
-	import { appState, settings } from '$lib/stores/periods.svelte.js';
+	import { appState, settings, viewState } from '$lib/stores/periods.svelte.js';
 	/** @type {{ day: string }} */
 	let { day } = $props();
 
@@ -10,6 +10,7 @@
 	const hasConflict = $derived(isRequiredDay && appState[day] === 'g');
 
 	const changeColor = () => {
+		if (viewState.isReadOnly) return;
 		if (appState[day] === 'b') {
 			appState[day] = 'g';
 		} else if (appState[day] === 'g') {
@@ -26,6 +27,7 @@
 	class:blue={appState[day] === 'b'}
 	class:green={appState[day] === 'g'}
 	class:red={appState[day] === 'r'}
+	class:readonly={viewState.isReadOnly}
 >
 	{#if isRequiredDay}
 		<span
@@ -61,7 +63,10 @@
 		cursor: pointer;
 		overflow: hidden;
 	}
-	.day:hover {
+	.day.readonly {
+		cursor: default;
+	}
+	.day:hover:not(.readonly) {
 		transform: translateY(-2px);
 		filter: brightness(0.95);
 		box-shadow:

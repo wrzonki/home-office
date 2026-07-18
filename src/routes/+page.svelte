@@ -1,6 +1,13 @@
 <script>
 	import { onMount } from 'svelte';
-	import { appState, dates, settings } from '$lib/stores/periods.svelte.js';
+	import {
+		appState,
+		dates,
+		settings,
+		viewState,
+		serializeState,
+		loadSerializedState
+	} from '$lib/stores/periods.svelte.js';
 	import Period from '$lib/components/Period.svelte';
 
 	/** @type {HTMLInputElement | undefined} */
@@ -28,6 +35,20 @@
 	}
 
 	onMount(() => {
+		const urlParams = new URLSearchParams(window.location.search);
+		const p = urlParams.get('p');
+		const md = urlParams.get('md');
+		const rd = urlParams.get('rd');
+
+		if (p) {
+			viewState.isReadOnly = true;
+			loadSerializedState(p, rd, md);
+		} else {
+			loadLocalStorageState();
+		}
+	});
+
+	function loadLocalStorageState() {
 		const saved = localStorage.getItem('appState');
 		if (saved) {
 			try {
@@ -53,13 +74,15 @@
 				console.warn('Invalid appSettings in localStorage');
 			}
 		}
-	});
+	}
 
 	$effect(() => {
+		if (viewState.isReadOnly) return;
 		localStorage.setItem('appState', JSON.stringify(appState));
 	});
 
 	$effect(() => {
+		if (viewState.isReadOnly) return;
 		localStorage.setItem('appSettings', JSON.stringify({
 			requiredDays: settings.requiredDays,
 			minDays: settings.minDays,
@@ -195,99 +218,212 @@
 		};
 		reader.readAsText(file);
 	}
+
+	function shareStateLink() {
+		try {
+			const { p, md, rd } = serializeState();
+			const url = new URL(window.location.href);
+			url.searchParams.set('p', p);
+			url.searchParams.set('md', md.toString());
+			url.searchParams.set('rd', rd);
+
+			navigator.clipboard.writeText(url.toString());
+			showNotification('Link do planu został skopiowany do schowka!', 'success');
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			showNotification('Błąd podczas generowania linku: ' + msg, 'error');
+		}
+	}
+
+	function closePreview() {
+		const url = new URL(window.location.href);
+		url.search = '';
+		window.history.replaceState({}, '', url.toString());
+
+		viewState.isReadOnly = false;
+
+		// Clear current appState first to avoid residues
+		for (const key in appState) {
+			delete appState[key];
+		}
+		// Reset to defaults
+		const allDates = [...dates[0], ...dates[1], ...dates[2], ...dates[3]];
+		allDates.forEach((date) => {
+			const weekDay = new Date(date).getDay();
+			appState[date] = (weekDay === 0 || weekDay === 6) ? 'b' : 'g';
+		});
+
+		loadLocalStorageState();
+		showNotification('Powrócono do Twojego planu.', 'success');
+	}
+
+	function saveSharedAsLocal() {
+		viewState.isReadOnly = false;
+
+		localStorage.setItem('appState', JSON.stringify(appState));
+		localStorage.setItem('appSettings', JSON.stringify({
+			requiredDays: settings.requiredDays,
+			minDays: settings.minDays,
+			requiredPercent: settings.requiredPercent
+		}));
+
+		const url = new URL(window.location.href);
+		url.search = '';
+		window.history.replaceState({}, '', url.toString());
+
+		showNotification('Plan został zapisany jako Twój własny.', 'success');
+	}
 </script>
 
 <div class="min-h-screen bg-slate-50 pb-16">
-	<!-- Glassmorphic Sticky Header -->
-	<header
+	<!-- Glassmorphic Sticky Header Container -->
+	<div
 		class="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/75 backdrop-blur-md transition-all duration-300"
 	>
-		<div
-			class="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-4 py-4 sm:flex-row sm:px-6 lg:px-8"
-		>
-			<div class="flex items-center gap-3">
-				<div
-					class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-500 text-white shadow-md shadow-sky-100"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line
-							x1="16"
-							y1="2"
-							x2="16"
-							y2="6"
-						/><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg
-					>
-				</div>
-				<div>
-					<h1 class="text-xl font-bold tracking-tight text-slate-800">Home Office Planner</h1>
-					<p class="text-xs font-medium text-slate-400">Zaplanuj swój rok pracy 2026</p>
+		{#if viewState.isReadOnly}
+			<div class="bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 text-white py-2.5 px-4 shadow-inner">
+				<div class="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+					<div class="flex items-center gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="animate-pulse"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+						<span class="text-xs font-semibold tracking-wide">Przeglądasz udostępniony plan (Tylko do odczytu)</span>
+					</div>
+					<div class="flex items-center gap-2">
+						<button
+							onclick={saveSharedAsLocal}
+							class="cursor-pointer rounded-lg bg-white px-3 py-1 text-xs font-bold text-indigo-700 hover:bg-slate-100 active:scale-95 transition-all duration-150 shadow-xs"
+						>
+							Zapisz jako mój plan
+						</button>
+						<button
+							onclick={closePreview}
+							class="cursor-pointer rounded-lg bg-white/10 px-3 py-1 text-xs font-bold text-white hover:bg-white/20 active:scale-95 transition-all duration-150 border border-white/20"
+						>
+							Zamknij podgląd
+						</button>
+					</div>
 				</div>
 			</div>
+		{/if}
 
-			<div class="flex w-full items-center gap-3 sm:w-auto">
-				<!-- Import Button -->
-				<button
-					onclick={triggerImport}
-					class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs transition-all duration-200 select-none hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:bg-slate-100 sm:flex-initial"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-							points="17 8 12 3 7 8"
-						/><line x1="12" x2="12" y1="3" y2="15" /></svg
+		<header class="w-full">
+			<div
+				class="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-4 py-4 sm:flex-row sm:px-6 lg:px-8"
+			>
+				<div class="flex items-center gap-3">
+					<div
+						class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-500 text-white shadow-md shadow-sky-100"
 					>
-					Importuj
-				</button>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.5"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line
+								x1="16"
+								y1="2"
+								x2="16"
+								y2="6"
+							/><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg
+						>
+					</div>
+					<div>
+						<h1 class="text-xl font-bold tracking-tight text-slate-800">Home Office Planner</h1>
+						<p class="text-xs font-medium text-slate-400">Zaplanuj swój rok pracy 2026</p>
+					</div>
+				</div>
 
-				<!-- Export Button -->
-				<button
-					onclick={exportState}
-					class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-100 transition-all duration-200 select-none hover:from-sky-600 hover:to-indigo-600 hover:shadow-lg hover:shadow-sky-200/50 active:scale-[0.98] active:from-sky-700 active:to-indigo-700 sm:flex-initial"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.5"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
-							points="7 10 12 15 17 10"
-						/><line x1="12" x2="12" y1="15" y2="3" /></svg
-					>
-					Eksportuj
-				</button>
+				<div class="flex w-full items-center gap-3 sm:w-auto">
+					{#if !viewState.isReadOnly}
+						<!-- Import Button -->
+						<button
+							onclick={triggerImport}
+							class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs transition-all duration-200 select-none hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:bg-slate-100 sm:flex-initial"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+									points="17 8 12 3 7 8"
+								/><line x1="12" x2="12" y1="3" y2="15" /></svg
+							>
+							Importuj
+						</button>
 
-				<input
-					type="file"
-					accept=".json"
-					bind:this={fileInput}
-					onchange={importState}
-					class="hidden"
-				/>
+						<!-- Export Button -->
+						<button
+							onclick={exportState}
+							class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-xs transition-all duration-200 select-none hover:bg-slate-50 hover:shadow-sm active:scale-[0.98] active:bg-slate-100 sm:flex-initial"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline
+									points="7 10 12 15 17 10"
+								/><line x1="12" x2="12" y1="15" y2="3" /></svg
+							>
+							Eksportuj
+						</button>
+
+						<!-- Udostępnij Button -->
+						<button
+							onclick={shareStateLink}
+							class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-100 transition-all duration-200 select-none hover:from-sky-600 hover:to-indigo-600 hover:shadow-lg hover:shadow-sky-200/50 active:scale-[0.98] active:from-sky-700 active:to-indigo-700 sm:flex-initial"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle
+									cx="18"
+									cy="19"
+									r="3"
+								/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line
+									x1="15.41"
+									y1="6.51"
+									x2="8.59"
+									y2="10.49"
+								/></svg
+							>
+							Udostępnij link
+						</button>
+					{/if}
+
+					<input
+						type="file"
+						accept=".json"
+						bind:this={fileInput}
+						onchange={importState}
+						class="hidden"
+					/>
+				</div>
 			</div>
-		</div>
-	</header>
+		</header>
+	</div>
 
 	<!-- Main Content Area -->
 	<main class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
@@ -310,7 +446,8 @@
 							{#each weekdays as day}
 								<button
 									onclick={() => toggleRequiredDay(day.value)}
-									class="px-4 py-2 rounded-xl text-sm font-bold border transition-all duration-200 cursor-pointer select-none active:scale-95 {settings.requiredDays.includes(day.value) ? 'bg-sky-500 text-white border-sky-500 shadow-xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}"
+									disabled={viewState.isReadOnly}
+									class="px-4 py-2 rounded-xl text-sm font-bold border transition-all duration-200 select-none {viewState.isReadOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer active:scale-95'} {settings.requiredDays.includes(day.value) ? 'bg-sky-500 text-white border-sky-500 shadow-xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}"
 								>
 									{day.label}
 								</button>
@@ -332,7 +469,8 @@
 							max="5"
 							step="1"
 							bind:value={settings.minDays}
-							class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-sky-500 focus:outline-hidden"
+							disabled={viewState.isReadOnly}
+							class="w-full h-2 bg-slate-100 rounded-lg appearance-none accent-sky-500 focus:outline-hidden {viewState.isReadOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}"
 						/>
 					</div>
 				</div>
